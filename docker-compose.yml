@@ -1,0 +1,84 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  postgres-user:
+    image: postgres:16
+    container_name: postgres-user
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_user_data:/var/lib/postgresql/data
+
+  postgres-product:
+    image: postgres:16
+    container_name: postgres-product
+    environment:
+      POSTGRES_DB: productdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_product_data:/var/lib/postgresql/data
+
+  user-service:
+    build:
+      context: ./user-service
+    container_name: user-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres-user:5432/userdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    ports:
+      - "8082:8082"
+    depends_on:
+      - rabbitmq
+      - postgres-user
+
+  product-service:
+    build:
+      context: ./product-service
+    container_name: product-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres-product:5432/productdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    ports:
+      - "8081:8081"
+    depends_on:
+      - rabbitmq
+      - postgres-product
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+    environment:
+      USER_SERVICE_URL: http://user-service:8082
+      PRODUCT_SERVICE_URL: http://product-service:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - product-service
+
+volumes:
+  postgres_user_data:
+  postgres_product_data:

@@ -1,0 +1,124 @@
+package com.cellc.productservice.service;
+
+import com.cellc.productservice.dto.PageResponseDto;
+import com.cellc.productservice.dto.ProductoDto;
+import com.cellc.productservice.entity.ImagenProducto;
+import com.cellc.productservice.entity.Producto;
+import com.cellc.productservice.filters.ProductoSpecification;
+import com.cellc.productservice.mapper.ProductoMapper;
+import com.cellc.productservice.repository.ImagenProductoRepository;
+import com.cellc.productservice.repository.ProductoRepository;
+
+import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ProductoService {
+
+    private final ProductoRepository productoRepository;
+    private final ImagenProductoRepository imagenRepo;
+    private final ProductoMapper mapper;
+
+    @Cacheable(value = "productos")
+    public PageResponseDto<ProductoDto> buscar(
+            String nombre,
+            Long categoriaId,
+            Long marcaId,
+            Double precioMin,
+            Double precioMax,
+            int page,
+            int size,
+            String sortBy,
+            String direction
+    ) {
+
+        Sort sort = direction.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<Producto> spec = ProductoSpecification.filtrar(
+                nombre, categoriaId, marcaId, precioMin, precioMax
+        );
+
+        Page<Producto> productos = productoRepository.findAll(spec, pageable);
+
+        return getProductoDtoPageResponseDto(productos);
+    }
+
+    @CacheEvict(value = "productos", allEntries = true)
+    public Producto crear(Producto producto) {
+        producto.setFechaCreacion(LocalDateTime.now());
+        return productoRepository.save(producto);
+    }
+
+    public ProductoDto obtener(Long id) {
+        Producto p = productoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
+        List<ImagenProducto> imgs = imagenRepo.findByProductoId(id);
+        return mapper.toDTO(p, imgs);
+    }
+
+    public PageResponseDto<ProductoDto> porCategoria(
+            Long categoriaId,
+            int page,
+            int size
+    ) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("nombre").ascending());
+
+        Page<Producto> productos = productoRepository
+                .findByCategoriaId(categoriaId, pageable);
+
+        return getProductoDtoPageResponseDto(productos);
+    }
+
+    @NonNull
+    private PageResponseDto<ProductoDto> getProductoDtoPageResponseDto(Page<Producto> productos) {
+        List<ProductoDto> lista = productos.getContent().stream().map(p -> {
+            List<ImagenProducto> imgs = imagenRepo.findByProductoId(p.getId());
+            return mapper.toDTO(p, imgs);
+        }).toList();
+
+        return new PageResponseDto<>(
+                lista,
+                productos.getNumber(),
+                productos.getSize(),
+                productos.getTotalElements(),
+                productos.getTotalPages(),
+                productos.isLast()
+        );
+    }
+
+    @CacheEvict(value = "productos", allEntries = true)
+    public Producto actualizar(Long id, Producto nuevo) {
+        Producto p = productoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("No existe"));
+
+        p.setNombre(nuevo.getNombre());
+        p.setDescripcion(nuevo.getDescripcion());
+        p.setPrecio(nuevo.getPrecio());
+        p.setStock(nuevo.getStock());
+
+        return productoRepository.save(p);
+    }
+
+    @CacheEvict(value = "productos", allEntries = true)
+    public void eliminar(Long id) {
+        productoRepository.deleteById(id);
+    }
+}
