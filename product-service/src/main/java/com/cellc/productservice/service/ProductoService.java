@@ -1,5 +1,5 @@
 package com.cellc.productservice.service;
-
+import org.springframework.lang.NonNull;
 import com.cellc.productservice.dto.PageResponseDto;
 import com.cellc.productservice.dto.ProductoDto;
 import com.cellc.productservice.entity.ImagenProducto;
@@ -10,7 +10,7 @@ import com.cellc.productservice.repository.ImagenProductoRepository;
 import com.cellc.productservice.repository.ProductoRepository;
 
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.NonNull;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;

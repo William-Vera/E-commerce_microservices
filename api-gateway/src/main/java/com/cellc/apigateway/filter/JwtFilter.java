@@ -12,12 +12,13 @@ import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.ServerWebExchangeDecorator;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
-import java.util.List;
 
 @Component
 public class JwtFilter implements GlobalFilter, Ordered {
@@ -36,7 +37,7 @@ public class JwtFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        if (path.startsWith("/api/auth/") || path.equals("/api/auth")) {
+        if (isPublicPath(path)) {
             return chain.filter(exchange);
         }
 
@@ -59,17 +60,37 @@ public class JwtFilter implements GlobalFilter, Ordered {
             String userId = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            ServerHttpRequest modifiedRequest = request.mutate()
-                    .header("X-User-Id", userId)
-                    .header("X-User-Role", role)
-                    .build();
+            HttpHeaders newHeaders = new HttpHeaders();
+            newHeaders.addAll(request.getHeaders());
+            newHeaders.set("X-User-Id", userId);
+            newHeaders.set("X-User-Role", role);
 
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            ServerHttpRequest decoratedRequest = new ServerHttpRequestDecorator(request) {
+                @Override
+                public HttpHeaders getHeaders() {
+                    return newHeaders;
+                }
+            };
+
+            ServerWebExchange decoratedExchange = new ServerWebExchangeDecorator(exchange) {
+                @Override
+                public ServerHttpRequest getRequest() {
+                    return decoratedRequest;
+                }
+            };
+
+            return chain.filter(decoratedExchange);
 
         } catch (JwtException e) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
+    }
+
+    private boolean isPublicPath(String path) {
+        return path.startsWith("/api/auth/")
+                || path.equals("/api/auth")
+                || path.startsWith("/actuator");
     }
 
     @Override

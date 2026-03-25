@@ -30,8 +30,7 @@ public class SecurityConfig {
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/api/auth/**").permitAll()
-                        .anyExchange().authenticated()
+                        .anyExchange().permitAll()
                 )
                 .build();
     }
