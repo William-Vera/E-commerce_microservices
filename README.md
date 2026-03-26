@@ -36,6 +36,9 @@ docker compose up --build
 - `eureka-server`: `http://localhost:8761`
 - `rabbitmq`: `http://localhost:15672` (usuario/clave: `guest`/`guest`)
 - Servicios:
+
+  - `product-service`: `http://localhost:8081`
+  - `user-service`: `http://localhost:8082`
   - `cart-service`: `http://localhost:8083`
   - `order-service`: `http://localhost:8084`
   - `promotion-service`: `http://localhost:8085`
