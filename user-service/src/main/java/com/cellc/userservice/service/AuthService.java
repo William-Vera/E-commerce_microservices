@@ -43,13 +43,17 @@ public class AuthService {
 
         user = userRepo.save(user);
 
-        Role role = roleRepo.findByNombre("USER")
-                .orElseThrow();
+        // El primer usuario es ADMIN, los demás USER
+        long userCount = userRepo.count();
+        String roleName = (userCount == 1) ? "ADMIN" : "USER";
+
+        Role role = roleRepo.findByNombre(roleName)
+                .orElseThrow(() -> new RuntimeException("Rol " + roleName + " no encontrado en BD"));
 
         userRoleRepo.save(new UserRole(user.getId(), role.getId()));
         userEventPublisher.publishUserRegistered(user);
 
-        String token = jwtService.generateToken(user.getId(), "USER");
+        String token = jwtService.generateToken(user.getId(), roleName);
 
         return AuthResponse.builder()
                 .token(token)
@@ -67,7 +71,12 @@ public class AuthService {
             throw new RuntimeException("Credenciales inválidas");
         }
 
-        String role = "USER";
+        String role = userRoleRepo.findByUserId(user.getId())
+                .stream()
+                .findFirst()
+                .flatMap(ur -> roleRepo.findById(ur.getRoleId()))
+                .map(Role::getNombre)
+                .orElse("USER");
 
         String token = jwtService.generateToken(user.getId(), role);
         String refresh = jwtService.generateRefreshToken(user.getId());

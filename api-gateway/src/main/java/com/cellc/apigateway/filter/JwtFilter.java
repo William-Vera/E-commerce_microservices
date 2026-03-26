@@ -13,9 +13,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.ServerWebExchangeDecorator;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
@@ -59,32 +59,46 @@ public class JwtFilter implements GlobalFilter, Ordered {
 
             String userId = claims.getSubject();
             String role = claims.get("role", String.class);
+            boolean isAdminPath = isAdminRoute(request);
 
-            HttpHeaders newHeaders = new HttpHeaders();
-            newHeaders.addAll(request.getHeaders());
-            newHeaders.set("X-User-Id", userId);
-            newHeaders.set("X-User-Role", role);
+            //System.out.println("DEBUG Gateway: path=" + path + ", role=" + role + ", isAdminPath=" + isAdminPath);
 
-            ServerHttpRequest decoratedRequest = new ServerHttpRequestDecorator(request) {
+            if (isAdminRoute(request) && (role == null || !role.trim().equalsIgnoreCase("ADMIN"))) {
+                exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                return exchange.getResponse().setComplete();
+            }
+
+            ServerHttpRequest decoratedRequest = new ServerHttpRequestDecorator(exchange.getRequest()) {
                 @Override
+                @NonNull
                 public HttpHeaders getHeaders() {
-                    return newHeaders;
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.addAll(super.getHeaders());
+                    headers.set("X-User-Id", userId);
+                    headers.set("X-User-Role", role != null ? role : "USER");
+                    return HttpHeaders.readOnlyHttpHeaders(headers);
                 }
             };
 
-            ServerWebExchange decoratedExchange = new ServerWebExchangeDecorator(exchange) {
-                @Override
-                public ServerHttpRequest getRequest() {
-                    return decoratedRequest;
-                }
-            };
-
-            return chain.filter(decoratedExchange);
+            return chain.filter(exchange.mutate().request(decoratedRequest).build());
 
         } catch (JwtException e) {
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
+    }
+
+    private boolean isAdminRoute(ServerHttpRequest request) {
+        request.getMethod();
+
+        String method = request.getMethod().name();
+        String path   = request.getURI().getPath();
+
+        if ((method.equals("POST") || method.equals("PUT") || method.equals("DELETE"))
+                && path.startsWith("/api/products")) {
+            return true;
+        }
+        return method.equals("POST") && path.startsWith("/api/promotions");
     }
 
     private boolean isPublicPath(String path) {

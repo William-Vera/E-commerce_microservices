@@ -5,7 +5,9 @@ import com.cellc.productservice.dto.ProductoDto;
 import com.cellc.productservice.entity.Producto;
 import com.cellc.productservice.service.ProductoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/products")
@@ -13,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 public class ProductoController {
 
     private final ProductoService service;
+
+    private void requireAdmin(String role) {
+        if (role == null || !role.trim().equalsIgnoreCase("ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Se requiere rol ADMIN");
+        }
+    }
 
     @GetMapping("/buscar")
     public PageResponseDto<ProductoDto> buscar(
@@ -55,19 +63,29 @@ public class ProductoController {
         return service.obtener(id);
     }
 
-    @PostMapping
-    public Producto crear(@RequestBody Producto producto) {
+    @PostMapping({"", "/"})
+    public Producto crear(@RequestHeader("X-User-Role") String role,
+                          @RequestBody Producto producto) {
+        System.out.println("DEBUG ProductoController.crear - role received: '" + role + "'");
+        System.out.println("DEBUG ProductoController.crear - producto recibido: nombre='" + producto.getNombre()
+                + "', categoriaId=" + producto.getCategoriaId()
+                + ", marcaId=" + producto.getMarcaId() + ")");
+        requireAdmin(role);
         return service.crear(producto);
     }
 
     @PutMapping("/{id}")
-    public Producto actualizar(@PathVariable Long id,
+    public Producto actualizar(@RequestHeader("X-User-Role") String role,
+                               @PathVariable Long id,
                                @RequestBody Producto producto) {
+        requireAdmin(role);
         return service.actualizar(id, producto);
     }
 
     @DeleteMapping("/{id}")
-    public void eliminar(@PathVariable Long id) {
+    public void eliminar(@RequestHeader("X-User-Role") String role,
+                         @PathVariable Long id) {
+        requireAdmin(role);
         service.eliminar(id);
     }
 }

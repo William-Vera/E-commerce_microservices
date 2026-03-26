@@ -5,12 +5,14 @@ import com.cellc.userservice.dto.LoginRequest;
 import com.cellc.userservice.dto.RefreshRequest;
 import com.cellc.userservice.dto.RegisterRequest;
 import com.cellc.userservice.entity.RefreshToken;
+import com.cellc.userservice.entity.Role;
 import com.cellc.userservice.service.AuthService;
 import com.cellc.userservice.service.JwtService;
 import com.cellc.userservice.service.RefreshTokenService;
+import com.cellc.userservice.repository.RoleRepository;
+import com.cellc.userservice.repository.UserRoleRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,6 +29,8 @@ public class AuthController {
     private final AuthService service;
     private final RefreshTokenService refreshService;
     private final JwtService jwtService;
+    private final UserRoleRepository userRoleRepository;
+    private final RoleRepository roleRepository;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -41,7 +45,13 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<Map<String, String>> refresh(@RequestBody RefreshRequest request) {
         RefreshToken rt = refreshService.validate(request.getRefreshToken());
-        String newToken = jwtService.generateToken(rt.getUserId(), "USER");
+        String role = userRoleRepository.findByUserId(rt.getUserId())
+                .stream()
+                .findFirst()
+                .flatMap(userRole -> roleRepository.findById(userRole.getRoleId()))
+                .map(Role::getNombre)
+                .orElse("USER");
+        String newToken = jwtService.generateToken(rt.getUserId(), role);
         return ResponseEntity.ok(Map.of("accessToken", newToken));
     }
 }
