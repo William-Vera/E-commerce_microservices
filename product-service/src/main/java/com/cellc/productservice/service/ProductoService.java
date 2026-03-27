@@ -3,11 +3,14 @@ import org.springframework.lang.NonNull;
 import com.cellc.productservice.dto.PageResponseDto;
 import com.cellc.productservice.dto.ProductoDto;
 import com.cellc.productservice.entity.ImagenProducto;
+import com.cellc.productservice.entity.ProcessedOrder;
 import com.cellc.productservice.entity.Producto;
 import com.cellc.productservice.filters.ProductoSpecification;
 import com.cellc.productservice.mapper.ProductoMapper;
 import com.cellc.productservice.repository.ImagenProductoRepository;
+import com.cellc.productservice.repository.ProcessedOrderRepository;
 import com.cellc.productservice.repository.ProductoRepository;
+import com.cellc.productservice.messaging.OrderPaidEvent;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,6 +33,7 @@ public class ProductoService {
 
     private final ProductoRepository productoRepository;
     private final ImagenProductoRepository imagenRepo;
+    private final ProcessedOrderRepository processedOrderRepository;
     private final ProductoMapper mapper;
 
     @Cacheable(value = "productos")
@@ -120,5 +125,32 @@ public class ProductoService {
     @CacheEvict(value = "productos", allEntries = true)
     public void eliminar(Long id) {
         productoRepository.deleteById(id);
+    }
+
+    @Transactional
+    @CacheEvict(value = "productos", allEntries = true)
+    public void discountStock(Long orderId, List<OrderPaidEvent.OrderPaidItem> items) {
+        if (orderId == null || processedOrderRepository.existsById(orderId)) {
+            return;
+        }
+
+        for (OrderPaidEvent.OrderPaidItem item : items) {
+            if (item.productId() == null || item.quantity() == null || item.quantity() <= 0) {
+                continue;
+            }
+
+            Producto product = productoRepository.findById(item.productId())
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + item.productId()));
+
+            int currentStock = product.getStock() == null ? 0 : product.getStock();
+            int updatedStock = Math.max(0, currentStock - item.quantity());
+            product.setStock(updatedStock);
+            productoRepository.save(product);
+        }
+
+        ProcessedOrder processedOrder = new ProcessedOrder();
+        processedOrder.setOrderId(orderId);
+        processedOrder.setProcessedAt(LocalDateTime.now());
+        processedOrderRepository.save(processedOrder);
     }
 }

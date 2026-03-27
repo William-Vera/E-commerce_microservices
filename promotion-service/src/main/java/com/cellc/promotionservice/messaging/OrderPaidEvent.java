@@ -13,6 +13,13 @@ public record OrderPaidEvent(
         Double discountAmount,
         Double totalAmount,
         String promotionCode,
+        java.util.List<OrderPaidItem> items,
         Map<String, Object> metadata
-) implements Serializable {}
-
+) implements Serializable {
+    public record OrderPaidItem(
+            Long productId,
+            Integer quantity,
+            Double unitPrice,
+            Double lineTotal
+    ) implements Serializable {}
+}

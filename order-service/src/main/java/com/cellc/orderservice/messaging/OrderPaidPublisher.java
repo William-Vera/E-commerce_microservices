@@ -34,10 +34,17 @@ public class OrderPaidPublisher {
                 order.getDiscountAmount(),
                 order.getTotalAmount(),
                 order.getPromotionCode(),
+                order.getItems() == null ? java.util.List.of() : order.getItems().stream().map(item ->
+                        new OrderPaidEvent.OrderPaidItem(
+                                item.getProductId(),
+                                item.getQuantity(),
+                                item.getUnitPrice(),
+                                item.getLineTotal()
+                        )
+                ).toList(),
                 metadata == null ? Map.of() : metadata
         );
 
         rabbitTemplate.convertAndSend(exchangeName, routingKey, event);
     }
 }
-

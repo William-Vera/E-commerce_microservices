@@ -107,6 +107,7 @@ public class JwtFilter implements GlobalFilter, Ordered {
                 || path.equals("/api/auth/refresh")
                 || path.equals("/api/auth/logout")
                 || path.equals("/api/auth")
+                || path.startsWith("/api/products/images/")
                 || path.startsWith("/actuator");
     }
 
