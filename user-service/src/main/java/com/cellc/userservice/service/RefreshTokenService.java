@@ -32,4 +32,11 @@ public class RefreshTokenService {
 
         return rt;
     }
+    public void revoke(String token) {
+        if (token == null || token.isBlank()) {
+            throw new RuntimeException("Refresh token requerido");
+        }
+
+        repo.deleteByToken(token);
+    }
 }

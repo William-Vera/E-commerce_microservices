@@ -2,6 +2,8 @@ package com.cellc.userservice.controller;
 
 import com.cellc.userservice.dto.AuthResponse;
 import com.cellc.userservice.dto.LoginRequest;
+import com.cellc.userservice.dto.LogoutRequest;
+import com.cellc.userservice.dto.ProfileResponse;
 import com.cellc.userservice.dto.RefreshRequest;
 import com.cellc.userservice.dto.RegisterRequest;
 import com.cellc.userservice.entity.RefreshToken;
@@ -14,6 +16,8 @@ import com.cellc.userservice.repository.UserRoleRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,5 +57,17 @@ public class AuthController {
                 .orElse("USER");
         String newToken = jwtService.generateToken(rt.getUserId(), role);
         return ResponseEntity.ok(Map.of("accessToken", newToken));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(@RequestBody LogoutRequest request) {
+        refreshService.revoke(request.getRefreshToken());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<ProfileResponse> profile(Authentication authentication) {
+        Long userId = Long.valueOf(authentication.getName());
+        return ResponseEntity.ok(service.getProfile(userId));
     }
 }

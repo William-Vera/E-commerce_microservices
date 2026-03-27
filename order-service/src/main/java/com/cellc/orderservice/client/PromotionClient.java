@@ -12,19 +12,23 @@ import org.springframework.web.client.RestTemplate;
 public class PromotionClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final RequestHeaderProvider requestHeaderProvider;
 
     @Value("${app.promotion-service.base-url}")
     private String promotionServiceBaseUrl;
 
-    public double getDiscountPercentOrZero(Long userId, String promotionCode) {
+    public PromotionClient(RequestHeaderProvider requestHeaderProvider) {
+        this.requestHeaderProvider = requestHeaderProvider;
+    }
+
+    public PromotionValidateResponse validatePromotion(Long userId, String promotionCode, Double orderAmount) {
         if (promotionCode == null || promotionCode.isBlank()) {
-            return 0.0;
+            return PromotionValidateResponse.inactive();
         }
 
-        String url = promotionServiceBaseUrl + "/promotions/validate?code=" + promotionCode;
-        HttpHeaders headers = new HttpHeaders();
+        String url = promotionServiceBaseUrl + "/promotions/validate?code=" + promotionCode + "&orderAmount=" + orderAmount;
+        HttpHeaders headers = requestHeaderProvider.buildHeaders();
         headers.set("X-User-Id", String.valueOf(userId));
-        headers.set("X-User-Role", "USER");
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         ResponseEntity<PromotionValidateResponse> response = restTemplate.exchange(
@@ -34,12 +38,22 @@ public class PromotionClient {
                 PromotionValidateResponse.class
         );
         PromotionValidateResponse resp = response.getBody();
-        if (resp == null || resp.discountPercent() == null) {
-            return 0.0;
-        }
-        return resp.discountPercent();
+        return resp == null ? PromotionValidateResponse.inactive() : resp;
     }
 
-    public record PromotionValidateResponse(String code, Double discountPercent, Boolean active) {}
+    public record PromotionValidateResponse(
+            String code,
+            String discountType,
+            Double discountPercent,
+            Double fixedAmount,
+            Double minimumOrderAmount,
+            Integer usageLimit,
+            Long timesUsed,
+            Boolean usedByUser,
+            Boolean active
+    ) {
+        public static PromotionValidateResponse inactive() {
+            return new PromotionValidateResponse(null, null, 0.0, 0.0, null, null, 0L, false, false);
+        }
+    }
 }
-

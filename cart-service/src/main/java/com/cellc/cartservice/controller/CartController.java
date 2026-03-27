@@ -3,6 +3,7 @@ package com.cellc.cartservice.controller;
 import com.cellc.cartservice.service.CartService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +30,7 @@ public class CartController {
     public CartService.CartResponse getCart(
             @RequestHeader(name = "X-User-Id") Long userId
     ) {
-        return service.toResponse(service.getCartOrThrow(userId));
+        return service.toResponse(service.getOrCreateCart(userId));
     }
 
     @PutMapping("/items/{productId}")
@@ -59,6 +60,23 @@ public class CartController {
         return Map.of("status", "ok");
     }
 
+    @PostMapping("/promotion")
+    public CartService.CartResponse applyPromotion(
+            @RequestHeader(name = "X-User-Id") Long userId,
+            @Valid @RequestBody PromotionRequest request
+    ) {
+        service.applyPromotionCode(userId, request.code);
+        return service.toResponse(service.getOrCreateCart(userId));
+    }
+
+    @DeleteMapping("/promotion")
+    public CartService.CartResponse removePromotion(
+            @RequestHeader(name = "X-User-Id") Long userId
+    ) {
+        service.removePromotionCode(userId);
+        return service.toResponse(service.getOrCreateCart(userId));
+    }
+
     public record AddToCartRequest(
             @NotNull Long productId,
             @Min(1) Integer quantity
@@ -66,5 +84,9 @@ public class CartController {
 
     public record SetQuantityRequest(
             @Min(0) Integer quantity
+    ) {}
+
+    public record PromotionRequest(
+            @NotBlank String code
     ) {}
 }

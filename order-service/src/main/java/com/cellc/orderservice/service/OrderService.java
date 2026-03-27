@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -31,9 +32,10 @@ public class OrderService {
             throw new IllegalArgumentException("El carrito está vacío");
         }
 
-        double itemsTotal = cart.total() == null ? 0.0 : cart.total();
-        double discountPercent = promotionClient.getDiscountPercentOrZero(userId, promotionCode);
-        double discountAmount = itemsTotal * discountPercent / 100.0;
+        double itemsTotal = cart.subtotal() == null ? 0.0 : cart.subtotal();
+        String effectivePromotionCode = (promotionCode == null || promotionCode.isBlank()) ? cart.promotionCode() : promotionCode;
+        PromotionClient.PromotionValidateResponse promotion = promotionClient.validatePromotion(userId, effectivePromotionCode, itemsTotal);
+        double discountAmount = calculateDiscount(itemsTotal, promotion);
         double totalAmount = itemsTotal - discountAmount;
 
         Order order = new Order();
@@ -42,7 +44,7 @@ public class OrderService {
         order.setItemsTotalAmount(itemsTotal);
         order.setDiscountAmount(discountAmount);
         order.setTotalAmount(totalAmount);
-        order.setPromotionCode(promotionCode);
+        order.setPromotionCode(effectivePromotionCode);
 
         cart.items().forEach(ci -> {
             OrderItem oi = new OrderItem();
@@ -108,5 +110,21 @@ public class OrderService {
         }
         return order;
     }
-}
 
+    @Transactional(readOnly = true)
+    public List<Order> listByUser(Long userId) {
+        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    private double calculateDiscount(double itemsTotal, PromotionClient.PromotionValidateResponse promotion) {
+        if (promotion == null || promotion.active() == null || !promotion.active()) {
+            return 0.0;
+        }
+        if ("FIXED_AMOUNT".equalsIgnoreCase(promotion.discountType())) {
+            double fixedAmount = promotion.fixedAmount() == null ? 0.0 : promotion.fixedAmount();
+            return Math.min(itemsTotal, fixedAmount);
+        }
+        double discountPercent = promotion.discountPercent() == null ? 0.0 : promotion.discountPercent();
+        return Math.min(itemsTotal, itemsTotal * discountPercent / 100.0);
+    }
+}

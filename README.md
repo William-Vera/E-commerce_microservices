@@ -1,66 +1,67 @@
-# Microservices eCommerce (API Gateway + Eureka + RabbitMQ)
+# Microservices eCommerce
 
 Este proyecto implementa un ecommerce con microservicios Spring Boot, usando:
 
-- `api-gateway` (Spring Cloud Gateway) para enrutar y validar JWT
+- `api-gateway` para enrutar y validar JWT
 - `eureka-server` para descubrimiento de servicios
-- `rabbitmq` para eventos (ej. `order.paid`)
+- `rabbitmq` para eventos
 - Postgres por servicio para persistencia
 
-Incluye:
+Servicios incluidos:
 
-- `user-service` (auth JWT)
+- `user-service`
 - `product-service`
 - `cart-service`
-- `order-service` (checkout online vs efectivo)
-- `promotion-service` (validación de códigos y consumo de evento `order.paid`)
-- `favotite-service` (favoritos)
-
+- `order-service`
+- `promotion-service`
+- `favotite-service`
 
 ## Requisitos
 
 - Docker / Docker Desktop
-- (Opcional) Java 17 + Maven/Wrapper si quieres construir sin Docker
+- Opcionalmente Java 17 + Maven Wrapper si quieres ejecutar localmente sin Docker
 
-## Levantar todo con Docker
+## Levantar todo
 
-Desde la carpeta raíz `microservices`:
+Desde la raíz `microservices`:
 
 ```bash
 docker compose up --build
 ```
 
-## Puertos (en host)
+## Puertos
 
 - `api-gateway`: `http://localhost:8080`
 - `eureka-server`: `http://localhost:8761`
-- `rabbitmq`: `http://localhost:15672` (usuario/clave: `guest`/`guest`)
-- Servicios:
+- `rabbitmq`: `http://localhost:15672`
+- `product-service`: `http://localhost:8081`
+- `user-service`: `http://localhost:8082`
+- `cart-service`: `http://localhost:8083`
+- `order-service`: `http://localhost:8084`
+- `promotion-service`: `http://localhost:8085`
+- `favotite-service`: `http://localhost:8086`
 
-  - `product-service`: `http://localhost:8081`
-  - `user-service`: `http://localhost:8082`
-  - `cart-service`: `http://localhost:8083`
-  - `order-service`: `http://localhost:8084`
-  - `promotion-service`: `http://localhost:8085`
-  - `favotite-service`: `http://localhost:8086`
+Las llamadas de negocio deben hacerse vía `api-gateway`, usando rutas `http://localhost:8080/api/**`.
 
-Las llamadas normales deben hacerse vía `api-gateway` con rutas bajo `/api/**`.
+## Auth
 
-## Auth (JWT)
-
-Las rutas `/api/auth/**` son públicas.
-Para el resto de endpoints, el `api-gateway` exige `Authorization: Bearer <token>` y además inyecta:
-
-- `X-User-Id`
-- `X-User-Role`
-
-El token se obtiene con `user-service`:
+Rutas públicas:
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
+- `POST /api/auth/logout`
 
-Ejemplo rápido de login:
+Ruta protegida:
+
+- `GET /api/auth/profile`
+
+El gateway exige `Authorization: Bearer <token>` para las rutas protegidas y además inyecta:
+
+- `X-User-Id`
+- `X-User-Role`
+
+Ejemplo de login:
 
 ```bash
 curl -X POST "http://localhost:8080/api/auth/login" ^
@@ -68,115 +69,164 @@ curl -X POST "http://localhost:8080/api/auth/login" ^
   -d "{\"email\":\"test@test.com\",\"password\":\"123456\"}"
 ```
 
-Luego usa `accessToken` como `Bearer`.
+Ejemplo de perfil:
 
-## Flujo Carrito + Checkout
-
-### Agregar al carrito
-
-`POST /api/carts/items`
-
-Body:
-
-```json
-{ "productId": 1, "quantity": 2 }
+```bash
+curl -X GET "http://localhost:8080/api/auth/profile" ^
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-Ejemplo:
+## Productos
+
+Rutas principales:
+
+- `GET /api/products/{id}`
+- `GET /api/products/buscar`
+- `POST /api/products` (`ADMIN`)
+- `PUT /api/products/{id}` (`ADMIN`)
+- `DELETE /api/products/{id}` (`ADMIN`)
+
+Ejemplo de búsqueda con filtros:
+
+```bash
+curl "http://localhost:8080/api/products/buscar?categoriaId=1&marcaId=2&precioMin=100&precioMax=500&sortBy=precio&direction=asc"
+```
+
+## Categorías y marcas
+
+Categorías:
+
+- `GET /api/products/categorias`
+- `POST /api/products/categorias` (`ADMIN`)
+- `PUT /api/products/categorias/{id}` (`ADMIN`)
+- `DELETE /api/products/categorias/{id}` (`ADMIN`)
+
+Marcas:
+
+- `GET /api/products/marcas`
+- `POST /api/products/marcas` (`ADMIN`)
+- `PUT /api/products/marcas/{id}` (`ADMIN`)
+- `DELETE /api/products/marcas/{id}` (`ADMIN`)
+
+Rango de precios:
+
+- `GET /api/products/precios/rango`
+
+Ejemplo para crear categoría:
+
+```bash
+curl -X POST "http://localhost:8080/api/products/categorias" ^
+  -H "Authorization: Bearer <ADMIN_TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"nombre\":\"Laptops\"}"
+```
+
+## Carrito
+
+Rutas:
+
+- `POST /api/carts/items`
+- `GET /api/carts`
+- `PUT /api/carts/items/{productId}`
+- `DELETE /api/carts/items/{productId}`
+- `POST /api/carts/promotion`
+- `DELETE /api/carts/promotion`
+
+Ejemplo de agregar producto:
 
 ```bash
 curl -X POST "http://localhost:8080/api/carts/items" ^
-  -H "Content-Type: application/json" ^
   -H "Authorization: Bearer <ACCESS_TOKEN>" ^
+  -H "Content-Type: application/json" ^
   -d "{\"productId\":1,\"quantity\":2}"
 ```
 
-### Ver carrito
+Ejemplo de aplicar promoción:
 
-`GET /api/carts`
-
-### Checkout (pago en efectivo)
-
-`POST /api/orders/checkout`
-
-Body:
-
-```json
-{ "paymentMethod": "CASH", "promotionCode": "VIP10" }
+```bash
+curl -X POST "http://localhost:8080/api/carts/promotion" ^
+  -H "Authorization: Bearer <ACCESS_TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"code\":\"VIP10\"}"
 ```
 
-Comportamiento:
+`GET /api/carts` devuelve:
 
-- crea el pedido
-- marca `paymentStatus = PAID` y `status = COMPLETED`
-- borra el carrito
-- publica evento RabbitMQ `order.paid`
+- `subtotal`
+- `discountAmount`
+- `total`
+- `promotionCode`
+- `appliedPromotion`
 
-### Checkout (pago online)
+Reglas de promociones en carrito:
 
-`POST /api/orders/checkout`
+- se validan desde `cart-service`
+- el descuento se refleja antes del checkout
+- se respeta fecha, estado, monto mínimo y `customerUsable`
+- cada promo tiene límite global de usos
+- cada usuario solo puede usar una promo una vez por cuenta
 
-Body:
+## Órdenes
 
-```json
-{ "paymentMethod": "ONLINE", "promotionCode": "VIP10" }
+Rutas:
+
+- `POST /api/orders/checkout`
+- `POST /api/orders/{orderId}/confirm-online`
+- `GET /api/orders/{orderId}`
+
+Ejemplo checkout efectivo:
+
+```bash
+curl -X POST "http://localhost:8080/api/orders/checkout" ^
+  -H "Authorization: Bearer <ACCESS_TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"paymentMethod\":\"CASH\"}"
 ```
 
-Comportamiento:
-
-- crea el pedido
-- deja `paymentStatus = PENDING`
-- NO borra el carrito hasta confirmar el pago
-
-Confirmación de pago online (simulado):
-
-`POST /api/orders/{orderId}/confirm-online`
-
-Body:
-
-```json
-{ "transactionId": "TX-123" }
-```
-
-Comportamiento:
-
-- marca `paymentStatus = PAID` y `status = COMPLETED`
-- borra el carrito
-- publica evento RabbitMQ `order.paid`
+Si el carrito ya tiene una promoción aplicada, `order-service` la toma desde el carrito aunque no la envíes otra vez.
 
 ## Promociones
 
-Crear promoción:
+Rutas:
 
-`POST /api/promotions`
+- `POST /api/promotions` (`ADMIN`)
+- `GET /api/promotions` (`ADMIN`)
+- `GET /api/promotions/validate?code=...&orderAmount=...`
 
-Body:
+Ejemplo de creación:
 
-```json
-{ "code": "VIP10", "discountPercent": 10.0, "active": true }
+```bash
+curl -X POST "http://localhost:8080/api/promotions" ^
+  -H "Authorization: Bearer <ADMIN_TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"code\":\"VIP10\",\"discountType\":\"PERCENTAGE\",\"discountPercent\":10,\"fixedAmount\":null,\"minimumOrderAmount\":100,\"usageLimit\":2,\"startDate\":\"2026-03-27\",\"endDate\":\"2026-03-31\",\"active\":true,\"customerUsable\":true}"
 ```
 
-Validar promoción:
+Ejemplo de listado:
 
-`GET /api/promotions/validate?code=VIP10`
+```bash
+curl -X GET "http://localhost:8080/api/promotions" ^
+  -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
 
-> El `order-service` usa este endpoint durante checkout.
+Ejemplo de validación:
+
+```bash
+curl -X GET "http://localhost:8080/api/promotions/validate?code=VIP10&orderAmount=150" ^
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+`promotion-service` registra el uso real cuando una orden queda pagada.
 
 ## Favoritos
 
-Listar favoritos:
+Rutas:
 
-`GET /api/favorites`
+- `GET /api/favorites`
+- `POST /api/favorites/products/{productId}`
+- `DELETE /api/favorites/products/{productId}`
 
-Agregar favorito:
-
-`POST /api/favorites/products/{productId}`
-
-Quitar favorito:
-
-`DELETE /api/favorites/products/{productId}`
-
-## RabbitMQ (evento de pedido pagado)
+## RabbitMQ
 
 Exchange:
 
@@ -186,40 +236,32 @@ Routing key:
 
 - `order.paid`
 
-Queue (en `promotion-service`):
+Queue en `promotion-service`:
 
 - `promotion.order.paid.queue`
 
-Cuando un pedido pasa a `paymentStatus=PAID`, se publica el evento `order.paid` para que `promotion-service` registre el uso del código.
+Cuando un pedido pasa a `paymentStatus=PAID`, se publica el evento `order.paid` para registrar el uso de la promoción.
 
-## Endpoints principales (resumen)
+## Resumen rápido de endpoints
 
-- `user-service` (vía gateway):
-  - `POST /api/auth/register`
-  - `POST /api/auth/login`
-- `product-service` (vía gateway):
-  - `GET /api/products/{id}`
-- `cart-service` (vía gateway):
-  - `POST /api/carts/items`
-  - `GET /api/carts`
-  - `PUT /api/carts/items/{productId}`
-  - `DELETE /api/carts/items/{productId}`
-- `order-service` (vía gateway):
-  - `POST /api/orders/checkout`
-  - `POST /api/orders/{orderId}/confirm-online`
-  - `GET /api/orders/{orderId}`
-- `promotion-service` (vía gateway):
-  - `POST /api/promotions`
-  - `GET /api/promotions/validate?code=...`
-- `favotite-service` (vía gateway):
-  - `GET /api/favorites`
-  - `POST /api/favorites/products/{productId}`
-  - `DELETE /api/favorites/products/{productId}`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/profile`
+- `GET /api/products/{id}`
+- `GET /api/products/buscar`
+- `GET /api/products/categorias`
+- `GET /api/products/marcas`
+- `GET /api/products/precios/rango`
+- `POST /api/products/{productId}/images/url`
+- `POST /api/products/{productId}/images/upload`
+- `POST /api/carts/items`
+- `GET /api/carts`
+- `POST /api/carts/promotion`
+- `POST /api/orders/checkout`
+- `GET /api/promotions`
+- `GET /api/promotions/validate`
+- `GET /api/favorites`
 
 ## Nota
 
-- Pago online no integra Stripe/MercadoPago: se confirma con un `transactionId` que envías al endpoint `/confirm-online`.
-- El borrado del carrito depende del método de pago:
-  - `CASH`: se borra en el checkout
-  - `ONLINE`: se borra al confirmar pago
-
+- Pago online sigue siendo simulado

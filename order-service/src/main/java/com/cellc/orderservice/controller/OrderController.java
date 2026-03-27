@@ -44,6 +44,13 @@ public class OrderController {
         return OrderResponse.from(service.getByUser(userId, orderId));
     }
 
+    @GetMapping({"", "/"})
+    public List<OrderResponse> listOrders(
+            @RequestHeader(name = "X-User-Id") Long userId
+    ) {
+        return service.listByUser(userId).stream().map(OrderResponse::from).toList();
+    }
+
     public record CheckoutRequest(
             @NotBlank String paymentMethod,
             String promotionCode
@@ -62,6 +69,7 @@ public class OrderController {
 
     public record OrderResponse(
             Long orderId,
+            java.time.Instant createdAt,
             PaymentMethod paymentMethod,
             PaymentStatus paymentStatus,
             OrderStatus status,
@@ -85,6 +93,7 @@ public class OrderController {
 
             return new OrderResponse(
                     order.getId(),
+                    order.getCreatedAt(),
                     order.getPaymentMethod(),
                     order.getPaymentStatus(),
                     order.getStatus(),
@@ -97,4 +106,3 @@ public class OrderController {
         }
     }
 }
-

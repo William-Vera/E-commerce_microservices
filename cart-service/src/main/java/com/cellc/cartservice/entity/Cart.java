@@ -20,7 +20,9 @@ public class Cart {
     @Column(nullable = false, unique = true)
     private Long userId;
 
+    @Column(length = 50)
+    private String promotionCode;
+
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> items = new ArrayList<>();
 }
-

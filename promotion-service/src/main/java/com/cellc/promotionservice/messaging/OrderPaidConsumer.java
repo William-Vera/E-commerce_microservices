@@ -16,7 +16,6 @@ public class OrderPaidConsumer {
         if (event == null) {
             return;
         }
-        promotionService.recordOrderPaid(event.promotionCode(), event.orderId());
+        promotionService.recordOrderPaid(event.promotionCode(), event.userId(), event.orderId());
     }
 }
-

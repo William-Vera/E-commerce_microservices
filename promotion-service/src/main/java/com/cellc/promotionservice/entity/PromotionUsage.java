@@ -1,17 +1,15 @@
 package com.cellc.promotionservice.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "promotion_usage", indexes = {
-        @jakarta.persistence.Index(name = "idx_promo_code", columnList = "code")
+        @Index(name = "idx_promo_usage_code", columnList = "code"),
+        @Index(name = "idx_promo_usage_user", columnList = "userId")
 })
 @Getter
 @Setter
@@ -21,12 +19,15 @@ public class PromotionUsage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String code;
 
     @Column(nullable = false)
-    private Long timesUsed;
+    private Long userId;
 
-    private Long lastOrderId;
+    @Column(nullable = false, unique = true)
+    private Long orderId;
+
+    @Column(nullable = false)
+    private LocalDateTime usedAt;
 }
-

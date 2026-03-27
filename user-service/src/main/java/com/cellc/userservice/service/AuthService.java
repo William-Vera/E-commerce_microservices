@@ -2,6 +2,7 @@ package com.cellc.userservice.service;
 
 import com.cellc.userservice.dto.AuthResponse;
 import com.cellc.userservice.dto.LoginRequest;
+import com.cellc.userservice.dto.ProfileResponse;
 import com.cellc.userservice.dto.RegisterRequest;
 import com.cellc.userservice.entity.Role;
 import com.cellc.userservice.entity.User;
@@ -87,5 +88,21 @@ public class AuthService {
                 .token(token)
                 .refreshToken(refresh)
                 .build();
+    }
+
+    public ProfileResponse getProfile(Long userId) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        return ProfileResponse.from(user, resolveRole(userId));
+    }
+
+    private String resolveRole(Long userId) {
+        return userRoleRepo.findByUserId(userId)
+                .stream()
+                .findFirst()
+                .flatMap(ur -> roleRepo.findById(ur.getRoleId()))
+                .map(Role::getNombre)
+                .orElse("USER");
     }
 }

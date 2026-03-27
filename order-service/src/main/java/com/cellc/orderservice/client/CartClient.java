@@ -12,12 +12,17 @@ import org.springframework.web.client.RestTemplate;
 public class CartClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final RequestHeaderProvider requestHeaderProvider;
 
     @Value("${app.cart-service.base-url}")
     private String cartServiceBaseUrl;
 
+    public CartClient(RequestHeaderProvider requestHeaderProvider) {
+        this.requestHeaderProvider = requestHeaderProvider;
+    }
+
     public CartResponse getCart(Long userId) {
-        HttpHeaders headers = new HttpHeaders();
+        HttpHeaders headers = requestHeaderProvider.buildHeaders();
         headers.set("X-User-Id", String.valueOf(userId));
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
@@ -32,7 +37,7 @@ public class CartClient {
     }
 
     public void clearCart(Long userId) {
-        HttpHeaders headers = new HttpHeaders();
+        HttpHeaders headers = requestHeaderProvider.buildHeaders();
         headers.set("X-User-Id", String.valueOf(userId));
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
@@ -48,6 +53,10 @@ public class CartClient {
             Long cartId,
             Long userId,
             java.util.List<CartItemDto> items,
+            String promotionCode,
+            AppliedPromotionDto appliedPromotion,
+            Double subtotal,
+            Double discountAmount,
             Double total
     ) {}
 
@@ -57,5 +66,15 @@ public class CartClient {
             Double unitPrice,
             Double lineTotal
     ) {}
-}
 
+    public record AppliedPromotionDto(
+            String code,
+            String discountType,
+            Double discountPercent,
+            Double fixedAmount,
+            Double minimumOrderAmount,
+            Integer usageLimit,
+            Long timesUsed,
+            Boolean usedByUser
+    ) {}
+}
