@@ -13,6 +13,7 @@
         <option value="$PROJECT_DIR$/favotite-service/pom.xml" />
         <option value="$PROJECT_DIR$/promotion-service/pom.xml" />
         <option value="$PROJECT_DIR$/eureka-server/pom.xml" />
+        <option value="$PROJECT_DIR$/notification-service/pom.xml" />
       </list>
     </option>
     <option name="ignoredFiles">

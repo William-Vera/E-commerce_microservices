@@ -177,6 +177,33 @@ services:
       postgres-order:
         condition: service_started
 
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: notification-service
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      EUREKA_URL: http://eureka-server:8761/eureka
+      SALES_EMAIL_ENABLED: ${SALES_EMAIL_ENABLED}
+      SALES_EMAIL_FROM: ${SALES_EMAIL_FROM}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS}
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true -Djava.net.preferIPv6Addresses=false"
+    ports:
+      - "8087:8087"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
   promotion-service:
     build:
       context: ./promotion-service

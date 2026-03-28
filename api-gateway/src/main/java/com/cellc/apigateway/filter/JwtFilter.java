@@ -98,6 +98,9 @@ public class JwtFilter implements GlobalFilter, Ordered {
                 && path.startsWith("/api/products")) {
             return true;
         }
+        if (method.equals("DELETE") && path.startsWith("/api/users")) {
+            return true;
+        }
         return method.equals("POST") && path.startsWith("/api/promotions");
     }
 

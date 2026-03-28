@@ -12,12 +12,8 @@ import com.cellc.userservice.repository.RoleRepository;
 import com.cellc.userservice.repository.UserRepository;
 import com.cellc.userservice.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,22 +25,23 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserEventPublisher userEventPublisher;
+    private final RefreshTokenService refreshService;
 
     public AuthResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.getEmail());
 
-        if (userRepo.findByEmail(request.getEmail()).isPresent()) {
+        if (userRepo.findByEmail(email).isPresent()) {
             throw new RuntimeException("Email ya registrado");
         }
 
         User user = new User();
         user.setNombre(request.getNombre());
         user.setApellido(request.getApellido());
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
         user = userRepo.save(user);
 
-        // El primer usuario es ADMIN, los demás USER
         long userCount = userRepo.count();
         String roleName = (userCount == 1) ? "ADMIN" : "USER";
 
@@ -61,24 +58,21 @@ public class AuthService {
                 .build();
     }
 
-    private final RefreshTokenService refreshService;
-
     public AuthResponse login(LoginRequest request) {
+        String email = normalizeEmail(request.getEmail());
 
-        User user = userRepo.findByEmail(request.getEmail())
+        User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Credenciales inválidas");
+        if (Boolean.FALSE.equals(user.getEstado())) {
+            throw new RuntimeException("El usuario esta inactivo");
         }
 
-        String role = userRoleRepo.findByUserId(user.getId())
-                .stream()
-                .findFirst()
-                .flatMap(ur -> roleRepo.findById(ur.getRoleId()))
-                .map(Role::getNombre)
-                .orElse("USER");
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Credenciales invalidas");
+        }
 
+        String role = resolveRole(user.getId());
         String token = jwtService.generateToken(user.getId(), role);
         String refresh = jwtService.generateRefreshToken(user.getId());
 
@@ -104,5 +98,12 @@ public class AuthService {
                 .flatMap(ur -> roleRepo.findById(ur.getRoleId()))
                 .map(Role::getNombre)
                 .orElse("USER");
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase();
     }
 }

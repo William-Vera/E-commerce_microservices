@@ -4,6 +4,7 @@ import com.cellc.orderservice.entity.OrderStatus;
 import com.cellc.orderservice.entity.PaymentMethod;
 import com.cellc.orderservice.entity.PaymentStatus;
 import com.cellc.orderservice.entity.Order;
+import com.cellc.orderservice.dto.UserContactResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,10 +24,12 @@ public class OrderPaidPublisher {
     @Value("${app.rabbitmq.order-paid-routing-key}")
     private String routingKey;
 
-    public void publishOrderPaid(Order order, Map<String, Object> metadata) {
+    public void publishOrderPaid(Order order, UserContactResponse customer, Map<String, Object> metadata) {
         OrderPaidEvent event = new OrderPaidEvent(
                 order.getId(),
                 order.getUserId(),
+                customer == null ? null : customer.nombreCompleto(),
+                customer == null ? null : customer.email(),
                 order.getPaymentMethod(),
                 order.getPaymentStatus(),
                 order.getStatus(),

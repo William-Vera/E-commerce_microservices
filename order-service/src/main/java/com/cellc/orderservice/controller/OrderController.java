@@ -1,11 +1,22 @@
 package com.cellc.orderservice.controller;
 
-import com.cellc.orderservice.entity.*;
+import com.cellc.orderservice.entity.Order;
+import com.cellc.orderservice.entity.OrderStatus;
+import com.cellc.orderservice.entity.PaymentMethod;
+import com.cellc.orderservice.entity.PaymentStatus;
 import com.cellc.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -21,7 +32,7 @@ public class OrderController {
             @RequestHeader(name = "X-User-Id") Long userId,
             @Valid @RequestBody CheckoutRequest request
     ) {
-        PaymentMethod method = PaymentMethod.valueOf(request.paymentMethod().toUpperCase());
+        PaymentMethod method = parsePaymentMethod(request.paymentMethod());
         Order order = service.checkout(userId, method, request.promotionCode());
         return OrderResponse.from(order);
     }
@@ -51,6 +62,31 @@ public class OrderController {
         return service.listByUser(userId).stream().map(OrderResponse::from).toList();
     }
 
+    @GetMapping("/internal/users/{userId}/has-orders")
+    public HasOrdersResponse hasOrdersByUser(
+            @PathVariable Long userId,
+            Authentication authentication
+    ) {
+        if (!isAdmin(authentication)) {
+            throw new SecurityException("Solo un administrador puede consultar ventas por usuario");
+        }
+        return new HasOrdersResponse(userId, service.userHasOrders(userId));
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ADMIN"::equals);
+    }
+
+    private PaymentMethod parsePaymentMethod(String paymentMethod) {
+        try {
+            return PaymentMethod.valueOf(paymentMethod.trim().toUpperCase());
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("paymentMethod invalido. Valores permitidos: CASH, ONLINE");
+        }
+    }
+
     public record CheckoutRequest(
             @NotBlank String paymentMethod,
             String promotionCode
@@ -65,6 +101,11 @@ public class OrderController {
             Integer quantity,
             Double unitPrice,
             Double lineTotal
+    ) {}
+
+    public record HasOrdersResponse(
+            Long userId,
+            boolean hasOrders
     ) {}
 
     public record OrderResponse(

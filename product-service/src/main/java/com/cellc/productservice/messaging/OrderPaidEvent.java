@@ -7,6 +7,8 @@ import java.util.Map;
 public record OrderPaidEvent(
         Long orderId,
         Long userId,
+        String customerName,
+        String customerEmail,
         String paymentMethod,
         String paymentStatus,
         String orderStatus,
