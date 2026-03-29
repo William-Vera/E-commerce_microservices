@@ -1,0 +1,5 @@
+C:\Users\denil\Documents\Projects_Java\microservices\notification-service\src\main\java\com\cellc\notificationservice\messaging\OrderPaidConsumer.java
+C:\Users\denil\Documents\Projects_Java\microservices\notification-service\src\main\java\com\cellc\notificationservice\messaging\OrderPaidEvent.java
+C:\Users\denil\Documents\Projects_Java\microservices\notification-service\src\main\java\com\cellc\notificationservice\messaging\RabbitMQConfig.java
+C:\Users\denil\Documents\Projects_Java\microservices\notification-service\src\main\java\com\cellc\notificationservice\NotificationServiceApplication.java
+C:\Users\denil\Documents\Projects_Java\microservices\notification-service\src\main\java\com\cellc\notificationservice\service\SaleEmailService.java

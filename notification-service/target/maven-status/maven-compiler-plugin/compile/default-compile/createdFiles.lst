@@ -1,0 +1,6 @@
+com\cellc\notificationservice\messaging\OrderPaidEvent$OrderPaidItem.class
+com\cellc\notificationservice\messaging\OrderPaidConsumer.class
+com\cellc\notificationservice\messaging\OrderPaidEvent.class
+com\cellc\notificationservice\NotificationServiceApplication.class
+com\cellc\notificationservice\service\SaleEmailService.class
+com\cellc\notificationservice\messaging\RabbitMQConfig.class
